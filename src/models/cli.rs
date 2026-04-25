@@ -68,7 +68,7 @@ pub enum ConfigurationOption {
     ActivitiesFetchIntervalSeconds,
     ProjectsFetchIntervalSeconds,
     IssuesFetchIntervalSeconds,
-    FetchRetriesMaximum
+    FetchRetriesMaximum,
 }
 
 #[derive(Subcommand)]

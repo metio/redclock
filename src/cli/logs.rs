@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: The redclock Authors
 // SPDX-License-Identifier: 0BSD
 
-use log::{info};
+use log::info;
 
 pub fn server_add_success(server_name: &str) {
     info!("Server '{server_name}' added");

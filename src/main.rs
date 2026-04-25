@@ -6,14 +6,13 @@ mod commands;
 mod models;
 mod redmine;
 
-use anyhow::{Result};
-use clap::{CommandFactory, Parser};
-use clap_complete::CompleteEnv;
-use human_panic::{setup_panic, Metadata};
 use crate::commands::{config, servers, time_trackers};
 use crate::models::cli::{Cli, Commands};
 use crate::models::configuration::Configuration;
-
+use anyhow::Result;
+use clap::{CommandFactory, Parser};
+use clap_complete::CompleteEnv;
+use human_panic::{Metadata, setup_panic};
 
 fn main() -> Result<()> {
     setup_panic!(

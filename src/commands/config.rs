@@ -17,13 +17,28 @@ pub fn dispatch(command: &ConfigCommands, configuration: Configuration) -> anyho
 fn get(configuration: &Configuration, option: &ConfigurationOption) {
     match option {
         ConfigurationOption::ActivitiesFetchIntervalSeconds => {
-            println!("{}", configuration.activities_fetch_interval_seconds.unwrap_or(60 * 60 * 24 * 7));
+            println!(
+                "{}",
+                configuration
+                    .activities_fetch_interval_seconds
+                    .unwrap_or(60 * 60 * 24 * 7)
+            );
         }
         ConfigurationOption::ProjectsFetchIntervalSeconds => {
-            println!("{}", configuration.projects_fetch_interval_seconds.unwrap_or(60 * 60 * 24));
+            println!(
+                "{}",
+                configuration
+                    .projects_fetch_interval_seconds
+                    .unwrap_or(60 * 60 * 24)
+            );
         }
         ConfigurationOption::IssuesFetchIntervalSeconds => {
-            println!("{}", configuration.issues_fetch_interval_seconds.unwrap_or(60 * 60));
+            println!(
+                "{}",
+                configuration
+                    .issues_fetch_interval_seconds
+                    .unwrap_or(60 * 60)
+            );
         }
         ConfigurationOption::FetchRetriesMaximum => {
             println!("{}", configuration.fetch_retries_maximum.unwrap_or(3));
