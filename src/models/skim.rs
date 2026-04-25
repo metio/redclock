@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: The redclock Authors
 // SPDX-License-Identifier: 0BSD
 
-use std::borrow::Cow;
-use skim::{SkimItem, SkimOptions};
 use skim::options::SkimOptionsBuilder;
 use skim::tui::options::TuiLayout;
+use skim::{SkimItem, SkimOptions};
+use std::borrow::Cow;
 
 pub struct RedmineActivityItem {
     pub activity_id: u64,
@@ -28,16 +28,28 @@ pub enum RedmineProjectIssueItemVariant {
 
 impl SkimItem for RedmineActivityItem {
     fn text(&self) -> Cow<'_, str> {
-        Cow::from(format!("Activity (#{}): {}", self.activity_id, self.activity_name))
+        Cow::from(format!(
+            "Activity (#{}): {}",
+            self.activity_id, self.activity_name
+        ))
     }
 }
 
 impl SkimItem for RedmineProjectIssueItem {
     fn text(&self) -> Cow<'_, str> {
         if self.variant == RedmineProjectIssueItemVariant::Issue {
-            Cow::from(format!("Issue (#{}): {}", self.issue_id.unwrap_or_default(), self.issue_title.clone().unwrap_or_default()))
+            Cow::from(format!(
+                "Issue (#{}): {}",
+                self.issue_id.unwrap_or_default(),
+                self.issue_title.clone().unwrap_or_default()
+            ))
         } else {
-            Cow::from(format!("Project (#{}) {}: {}", self.project_id.unwrap_or_default(), self.project_identifier.clone().unwrap_or_default(), self.project_name.clone().unwrap_or_default()))
+            Cow::from(format!(
+                "Project (#{}) {}: {}",
+                self.project_id.unwrap_or_default(),
+                self.project_identifier.clone().unwrap_or_default(),
+                self.project_name.clone().unwrap_or_default()
+            ))
         }
     }
 }

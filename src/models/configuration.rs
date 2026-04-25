@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use redmine_api::api::Redmine;
 use serde::{Deserialize, Serialize};
 use std::env::var_os;
-use std::path::{absolute, PathBuf};
+use std::path::{PathBuf, absolute};
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Configuration {
@@ -174,27 +174,30 @@ impl Configuration {
         Ok(RedmineHttpClient::new(
             redmine,
             Self::cache_directory(&server_registration.name)?,
-            self.activities_fetch_interval_seconds.unwrap_or(60 * 60 * 24 * 7), // 1 week
+            self.activities_fetch_interval_seconds
+                .unwrap_or(60 * 60 * 24 * 7), // 1 week
             self.projects_fetch_interval_seconds.unwrap_or(60 * 60 * 24), // 1 day
-            self.issues_fetch_interval_seconds.unwrap_or(60 * 60), // 1 hour
+            self.issues_fetch_interval_seconds.unwrap_or(60 * 60),        // 1 hour
         ))
     }
 }
 
 impl ServerRegistration {
     fn api_key(&self) -> Result<String> {
-        if let Some(command) = self.api_key_command.clone() && !command.is_empty() {
+        if let Some(command) = self.api_key_command.clone()
+            && !command.is_empty()
+        {
             if let Some(parts) = shlex::split(&command) {
                 let binary = &parts[0];
                 let args = &parts[1..];
 
-                Ok(duct::cmd(binary, args)
-                    .stdout_capture()
-                    .read()?)
+                Ok(duct::cmd(binary, args).stdout_capture().read()?)
             } else {
                 anyhow::bail!("Cannot parse command: {command:?}");
             }
-        } else if let Some(token) = self.api_key.clone() && !token.is_empty() {
+        } else if let Some(token) = self.api_key.clone()
+            && !token.is_empty()
+        {
             Ok(token)
         } else {
             anyhow::bail!("No API key specified");

@@ -9,13 +9,13 @@ use crate::models::skim::{
 };
 use crate::models::time_entry::StartTime;
 use crate::redmine::client::{RedmineClient, RedmineHttpClient};
+use redmine_api::api::enumerations::TimeEntryActivity;
+use redmine_api::api::issues::Issue;
+use redmine_api::api::projects::Project;
 use skim::Skim;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
-use redmine_api::api::enumerations::TimeEntryActivity;
-use redmine_api::api::issues::Issue;
-use redmine_api::api::projects::Project;
 
 pub fn dispatch(command: &TimeTrackCommands, configuration: &Configuration) -> anyhow::Result<()> {
     match command {
@@ -27,7 +27,9 @@ pub fn dispatch(command: &TimeTrackCommands, configuration: &Configuration) -> a
             args.issue.as_ref(),
             args.comment.as_ref(),
         ),
-        TimeTrackCommands::Stop(args) => stop(configuration, args.server_selection.server.as_ref(), None),
+        TimeTrackCommands::Stop(args) => {
+            stop(configuration, args.server_selection.server.as_ref(), None)
+        }
         TimeTrackCommands::Show(args) => show(configuration, args.server_selection.server.as_ref()),
     }
 }
@@ -61,18 +63,26 @@ fn start(
 
                         // user wants to start working on a project
                         project.trim().parse::<u64>().map_or_else(
-                            |_| (
-                                projects.iter()
+                            |_| {
+                                (
+                                    projects
+                                        .iter()
                                         .find(|&entry| entry.name.eq_ignore_ascii_case(project))
                                         .map(|entry| (entry.id, entry.name.clone()))
                                         .or(None),
-                                None),
-                            |project_id| (
-                                projects.iter()
+                                    None,
+                                )
+                            },
+                            |project_id| {
+                                (
+                                    projects
+                                        .iter()
                                         .find(|&entry| entry.id == project_id)
                                         .map(|entry| (project_id, entry.name.clone()))
                                         .or(None),
-                                None),
+                                    None,
+                                )
+                            },
                         )
                     }
                     (_, Some(issue)) => {
@@ -80,9 +90,11 @@ fn start(
 
                         // user wants to start working on an issue
                         issue.trim().parse::<u64>().map_or_else(
-                            |_| (
-                                None,
-                                issues.iter()
+                            |_| {
+                                (
+                                    None,
+                                    issues
+                                        .iter()
                                         .find(|&entry| {
                                             entry
                                                 .subject
@@ -93,23 +105,23 @@ fn start(
                                                 .is_some()
                                         })
                                         .map(|entry| {
-                                            (
-                                                entry.id,
-                                                entry.subject.clone().unwrap_or_default(),
-                                            )
+                                            (entry.id, entry.subject.clone().unwrap_or_default())
                                         })
-                                        .or(None)),
-                            |issue_id| (
-                                None,
-                                issues.iter()
+                                        .or(None),
+                                )
+                            },
+                            |issue_id| {
+                                (
+                                    None,
+                                    issues
+                                        .iter()
                                         .find(|entry| entry.id == issue_id)
                                         .map(|entry| {
-                                            (
-                                                issue_id,
-                                                entry.subject.clone().unwrap_or_default(),
-                                            )
+                                            (issue_id, entry.subject.clone().unwrap_or_default())
                                         })
-                                        .or(None)),
+                                        .or(None),
+                                )
+                            },
                         )
                     }
                     (None, None) => {
@@ -129,7 +141,8 @@ fn start(
                             first.downcast_item::<RedmineProjectIssueItem>().map_or(
                                 (None, None),
                                 |selection| {
-                                    if selection.variant == RedmineProjectIssueItemVariant::Project {
+                                    if selection.variant == RedmineProjectIssueItemVariant::Project
+                                    {
                                         (
                                             Some((
                                                 selection.project_id.unwrap_or_default(),
@@ -156,17 +169,20 @@ fn start(
                 fs::create_dir_all(parent)?;
             }
 
-            write_tracking_file(tracking_file_path, &StartTime {
-                server: registration.name.clone(),
-                activity_id: activity_tuple.0,
-                activity: activity_tuple.1,
-                project_id: project_tuple.clone().map(|project| project.0),
-                project: project_tuple.map(|project| project.1),
-                issue_id: issue_tuple.clone().map(|issue| issue.0),
-                issue: issue_tuple.map(|issue| issue.1),
-                comment: comment.cloned(),
-                start: chrono::Utc::now(),
-            })?;
+            write_tracking_file(
+                tracking_file_path,
+                &StartTime {
+                    server: registration.name.clone(),
+                    activity_id: activity_tuple.0,
+                    activity: activity_tuple.1,
+                    project_id: project_tuple.clone().map(|project| project.0),
+                    project: project_tuple.map(|project| project.1),
+                    issue_id: issue_tuple.clone().map(|issue| issue.0),
+                    issue: issue_tuple.map(|issue| issue.1),
+                    comment: comment.cloned(),
+                    start: chrono::Utc::now(),
+                },
+            )?;
 
             Ok(())
         } else {
@@ -179,7 +195,10 @@ fn start(
     }
 }
 
-fn combine_projects_and_issues(projects: &[Project], issues: &[Issue]) -> Vec<RedmineProjectIssueItem> {
+fn combine_projects_and_issues(
+    projects: &[Project],
+    issues: &[Issue],
+) -> Vec<RedmineProjectIssueItem> {
     let mut items: Vec<RedmineProjectIssueItem> = projects
         .iter()
         .map(|project| RedmineProjectIssueItem {
@@ -197,9 +216,7 @@ fn combine_projects_and_issues(projects: &[Project], issues: &[Issue]) -> Vec<Re
             project_name: None,
             project_identifier: None,
             issue_id: Some(issue.id),
-            issue_title: Some(
-                issue.subject.clone().unwrap_or_default(),
-            ),
+            issue_title: Some(issue.subject.clone().unwrap_or_default()),
             variant: RedmineProjectIssueItemVariant::Issue,
         });
     }
@@ -219,42 +236,57 @@ fn write_tracking_file(tracking_file_path: PathBuf, start_time: &StartTime) -> a
     Ok(())
 }
 
-fn determine_activity_id(activity: Option<&String>, time_entry_activities: &[TimeEntryActivity]) -> Option<IdWithText> {
-    let activity_id: Option<IdWithText> = activity.map_or_else(|| Skim::run_items(
-        create_skim_options("Select the activity you wish to start:"),
-        time_entry_activities
-            .iter()
-            .map(|entry| RedmineActivityItem {
-                activity_id: entry.id,
-                activity_name: entry.name.clone(),
-            }),
-    )
-        .ok()
-        .filter(|output| !output.is_abort)
-        .and_then(|output| output.selected_items.first().cloned())
-        .and_then(|first| {
-            first.downcast_item::<RedmineActivityItem>()
-                .map(|item| (item.activity_id, item.activity_name.clone()))
-        }), |activity| activity.trim().parse::<u64>().map_or_else(
-        |_| {
-            time_entry_activities
-                .iter()
-                .filter(|&entry| entry.name.eq_ignore_ascii_case(activity))
-                .map(|entry| (entry.id, entry.name.clone()))
-                .next()
+fn determine_activity_id(
+    activity: Option<&String>,
+    time_entry_activities: &[TimeEntryActivity],
+) -> Option<IdWithText> {
+    let activity_id: Option<IdWithText> = activity.map_or_else(
+        || {
+            Skim::run_items(
+                create_skim_options("Select the activity you wish to start:"),
+                time_entry_activities
+                    .iter()
+                    .map(|entry| RedmineActivityItem {
+                        activity_id: entry.id,
+                        activity_name: entry.name.clone(),
+                    }),
+            )
+            .ok()
+            .filter(|output| !output.is_abort)
+            .and_then(|output| output.selected_items.first().cloned())
+            .and_then(|first| {
+                first
+                    .downcast_item::<RedmineActivityItem>()
+                    .map(|item| (item.activity_id, item.activity_name.clone()))
+            })
         },
-        |activity_id| {
-            time_entry_activities
-                .iter()
-                .find(|entry| entry.id == activity_id)
-                .map(|entry| (activity_id, entry.name.clone()))
-                .or(None)
+        |activity| {
+            activity.trim().parse::<u64>().map_or_else(
+                |_| {
+                    time_entry_activities
+                        .iter()
+                        .filter(|&entry| entry.name.eq_ignore_ascii_case(activity))
+                        .map(|entry| (entry.id, entry.name.clone()))
+                        .next()
+                },
+                |activity_id| {
+                    time_entry_activities
+                        .iter()
+                        .find(|entry| entry.id == activity_id)
+                        .map(|entry| (activity_id, entry.name.clone()))
+                        .or(None)
+                },
+            )
         },
-    ));
+    );
     activity_id
 }
 
-fn stop(configuration: &Configuration, server_name: Option<&String>, redmine_client: Option<&RedmineHttpClient>) -> anyhow::Result<()> {
+fn stop(
+    configuration: &Configuration,
+    server_name: Option<&String>,
+    redmine_client: Option<&RedmineHttpClient>,
+) -> anyhow::Result<()> {
     if let Some(registration) = configuration.select_server(server_name) {
         let tracking_file_path = Configuration::tracking_file_path(&registration.name)?;
 
