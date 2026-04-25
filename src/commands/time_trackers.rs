@@ -344,16 +344,15 @@ fn show(configuration: &Configuration, server_name: Option<&String>) -> anyhow::
             let now = chrono::Utc::now();
             let elapsed = now.signed_duration_since(start_time.start);
             let duration = elapsed.to_std()?;
-            let seconds = duration.as_secs() % 60;
             let minutes = (duration.as_secs() / 60) % 60;
             let hours = (duration.as_secs() / 60) / 60;
 
             match (start_time.project, start_time.issue) {
                 (Some(project), None) => {
-                    println!("{project} for {hours:0>2}:{minutes:0>2}:{seconds:0>2}");
+                    println!("{project} for {hours:0>2}:{minutes:0>2}");
                 }
                 (None, Some(issue)) => {
-                    println!("{issue} for {hours:0>2}:{minutes:0>2}:{seconds:0>2}");
+                    println!("{issue} for {hours:0>2}:{minutes:0>2}");
                 }
                 (_, _) => {}
             }
