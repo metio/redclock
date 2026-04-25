@@ -157,6 +157,7 @@ impl Configuration {
     pub fn create_redmine_client(
         &self,
         server_registration: &ServerRegistration,
+        ignore_cache: bool
     ) -> Result<RedmineHttpClient> {
         let client = reqwest::blocking::Client::builder()
             .retry(
@@ -175,9 +176,10 @@ impl Configuration {
             redmine,
             Self::cache_directory(&server_registration.name)?,
             self.activities_fetch_interval_seconds
-                .unwrap_or(60 * 60 * 24 * 7), // 1 week
-            self.projects_fetch_interval_seconds.unwrap_or(60 * 60 * 24), // 1 day
-            self.issues_fetch_interval_seconds.unwrap_or(60 * 60),        // 1 hour
+                .unwrap_or(60 * 60 * 24 * 7),
+            self.projects_fetch_interval_seconds.unwrap_or(60 * 60 * 24),
+            self.issues_fetch_interval_seconds.unwrap_or(60 * 60),
+            ignore_cache,
         ))
     }
 }
