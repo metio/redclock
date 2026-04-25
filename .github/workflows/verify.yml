@@ -1,0 +1,94 @@
+# SPDX-FileCopyrightText: The redclock Authors
+# SPDX-License-Identifier: 0BSD
+
+name: Verify Commits
+on:
+  pull_request:
+    branches: [ main ]
+jobs:
+  check:
+    name: Check ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Set up Rust Target
+        run: rustup target add ${{ matrix.target }}
+      - name: Check Code
+        run: cargo check --release --target ${{ matrix.target }}
+      - name: Test Code
+        run: cargo test
+  build:
+    name: Build ${{ matrix.target }}
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: x86_64-pc-windows-gnu
+            os: windows-latest
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install prerequisites
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          case ${{ matrix.target }} in
+            aarch64-unknown-linux-gnu)  sudo apt-get -y update ; sudo apt-get -y install gcc-aarch64-linux-gnu ;;
+            aarch64-unknown-linux-musl) sudo apt-get -y update ; sudo apt-get -y install gcc-aarch64-linux-gnu musl-tools ;;
+            x86_64-unknown-linux-musl)  sudo apt-get -y update ; sudo apt-get -y install musl-tools ;;
+          esac
+      - name: Set up env variables
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          case ${{ matrix.target }} in
+            aarch64-unknown-linux-gnu) echo JEMALLOC_SYS_WITH_LG_PAGE=16 >> $GITHUB_ENV ;;
+            aarch64-unknown-linux-musl) echo CC=aarch64-linux-gnu-gcc >> $GITHUB_ENV; echo CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc >> $GITHUB_ENV ; echo CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="-Clink-self-contained=yes -Clinker=rust-lld" >> $GITHUB_ENV; echo JEMALLOC_SYS_WITH_LG_PAGE=16 >> $GITHUB_ENV ;;
+          esac
+      - name: Set up Rust Target
+        run: rustup target add ${{ matrix.target }}
+      - name: Build Code
+        run: cargo build --release --target ${{ matrix.target }}

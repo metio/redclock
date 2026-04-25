@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: The redclock Authors
+# SPDX-License-Identifier: 0BSD
+
+name: REUSE compliance
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  reuse:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: REUSE Compliance Check
+        uses: fsfe/reuse-action@v6

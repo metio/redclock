@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: The redclock Authors
+# SPDX-License-Identifier: 0BSD
+
+[package]
+name = "redclock"
+description = "time-tracking CLI for Redmine"
+version = "1.0.0"
+authors = ["Sebastian Hoß <seb@xn--ho-hia.de>"]
+license = "0BSD"
+edition = "2024"
+rust-version = "1.92"
+homepage = "https://github.com/metio/redclock"
+repository = "https://github.com/metio/redclock"
+keywords = ["redmine", "time-tracking"]
+categories = ["command-line-utilities"]
+readme = "README.md"
+exclude = [
+    ".github/*",
+]
+
+[features]
+default = []
+
+[dependencies]
+anyhow = { version = "1.0.102" }
+chrono = { version = "0.4.44", features = ["serde"] }
+clap = { version = "4.6.0", features = ["derive"] }
+clap_complete = { version = "4.6.2", features = ["unstable-dynamic"] }
+clap-verbosity-flag = { version = "3.0.4" }
+confy = { version = "1.0.0" }
+const-str = { version = "1.1.0" }
+directories = { version = "6.0.0" }
+duct = { version = "1.0.0" }
+env_logger = { version = "0.11.10" }
+human-panic = { version = "2.0.8" }
+log = { version = "0.4.29" }
+redmine-api = { version = "0.11.4" }
+reqwest = { version = "0.13.2", default-features = false, features = ["blocking", "json", "rustls"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = { version = "1.0.149" }
+shlex = { version = "1.3.0" }
+skim = { version = "4.6.0", default-features = false, features = [] }
+toml = { version = "1.1.0" }
