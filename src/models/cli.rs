@@ -103,6 +103,10 @@ pub struct TrackStartArgs {
     /// The comment for the new time entry
     #[arg(short, long, conflicts_with = "project")]
     pub comment: Option<String>,
+
+    /// Don't use local cache, fetch all data from server
+    #[arg(short = 'C', long)]
+    pub ignore_cache: bool,
 }
 
 #[derive(Args)]

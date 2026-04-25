@@ -39,6 +39,7 @@ pub struct RedmineHttpClient {
     activities_fetch_interval_seconds: u64,
     projects_fetch_interval_seconds: u64,
     issues_fetch_interval_seconds: u64,
+    ignore_cache: bool
 }
 
 impl RedmineHttpClient {
@@ -48,6 +49,7 @@ impl RedmineHttpClient {
         activities_fetch_interval_seconds: u64,
         projects_fetch_interval_seconds: u64,
         issues_fetch_interval_seconds: u64,
+        ignore_cache: bool
     ) -> Self {
         Self {
             redmine,
@@ -55,6 +57,7 @@ impl RedmineHttpClient {
             activities_fetch_interval_seconds,
             projects_fetch_interval_seconds,
             issues_fetch_interval_seconds,
+            ignore_cache,
         }
     }
 
@@ -79,7 +82,8 @@ impl RedmineClient for RedmineHttpClient {
         let cache_path = self.cache_directory.join("activities.json");
         let cache_timestamp_path = self.cache_directory.join("activities.last_fetched");
 
-        if cache_path.exists()
+        if self.ignore_cache
+            && cache_path.exists()
             && cache_timestamp_path.exists()
             && Self::should_read_from_cache(
                 &cache_timestamp_path,
@@ -116,7 +120,8 @@ impl RedmineClient for RedmineHttpClient {
         let cache_path = self.cache_directory.join("projects.json");
         let cache_timestamp_path = self.cache_directory.join("projects.last_fetched");
 
-        if cache_path.exists()
+        if self.ignore_cache
+            && cache_path.exists()
             && cache_timestamp_path.exists()
             && Self::should_read_from_cache(
                 &cache_timestamp_path,
@@ -152,7 +157,8 @@ impl RedmineClient for RedmineHttpClient {
         let cache_path = self.cache_directory.join("issues.json");
         let cache_timestamp_path = self.cache_directory.join("issues.last_fetched");
 
-        if cache_path.exists()
+        if self.ignore_cache
+            && cache_path.exists()
             && cache_timestamp_path.exists()
             && Self::should_read_from_cache(
                 &cache_timestamp_path,

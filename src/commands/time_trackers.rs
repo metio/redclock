@@ -26,6 +26,7 @@ pub fn dispatch(command: &TimeTrackCommands, configuration: &Configuration) -> a
             args.project.as_ref(),
             args.issue.as_ref(),
             args.comment.as_ref(),
+            args.ignore_cache
         ),
         TimeTrackCommands::Stop(args) => {
             stop(configuration, args.server_selection.server.as_ref(), None)
@@ -43,9 +44,10 @@ fn start(
     project: Option<&String>,
     issue: Option<&String>,
     comment: Option<&String>,
+    ignore_cache: bool,
 ) -> anyhow::Result<()> {
     if let Some(registration) = configuration.select_server(server_name) {
-        let redmine = configuration.create_redmine_client(registration)?;
+        let redmine = configuration.create_redmine_client(registration, ignore_cache)?;
         let tracking_file_path = Configuration::tracking_file_path(&registration.name)?;
 
         if tracking_file_path.exists() {
@@ -294,7 +296,7 @@ fn stop(
             let redmine = if let Some(client) = redmine_client {
                 client
             } else {
-                &configuration.create_redmine_client(registration)?
+                &configuration.create_redmine_client(registration, false)?
             };
             let tracking_file_content = fs::read_to_string(&tracking_file_path)?;
             let start_time: StartTime = toml::from_str(&tracking_file_content)?;
