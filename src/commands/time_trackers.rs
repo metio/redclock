@@ -69,70 +69,22 @@ fn start(
             let (project_tuple, issue_tuple): (Option<IdWithText>, Option<IdWithText>) =
                 match (project, issue) {
                     (Some(project), _) => {
+                        // user has specified a project
                         let projects = redmine.get_all_projects()?;
-
-                        // user wants to start working on a project
-                        project.trim().parse::<u64>().map_or_else(
-                            |_| {
-                                (
-                                    projects
-                                        .iter()
-                                        .find(|&entry| entry.name.eq_ignore_ascii_case(project))
-                                        .map(|entry| (entry.id, entry.name.clone()))
-                                        .or(None),
-                                    None,
-                                )
-                            },
-                            |project_id| {
-                                (
-                                    projects
-                                        .iter()
-                                        .find(|&entry| entry.id == project_id)
-                                        .map(|entry| (project_id, entry.name.clone()))
-                                        .or(None),
-                                    None,
-                                )
-                            },
-                        )
+                        let tuple = determine_project(project, &projects);
+                        if tuple.0.is_none() {
+                            anyhow::bail!("Specified project not known in server");
+                        }
+                        tuple
                     }
                     (_, Some(issue)) => {
+                        // user has specified an issue
                         let issues = redmine.get_all_open_issues()?;
-
-                        // user wants to start working on an issue
-                        issue.trim().parse::<u64>().map_or_else(
-                            |_| {
-                                (
-                                    None,
-                                    issues
-                                        .iter()
-                                        .find(|&entry| {
-                                            entry
-                                                .subject
-                                                .as_ref()
-                                                .filter(|&subject| {
-                                                    subject.eq_ignore_ascii_case(issue)
-                                                })
-                                                .is_some()
-                                        })
-                                        .map(|entry| {
-                                            (entry.id, entry.subject.clone().unwrap_or_default())
-                                        })
-                                        .or(None),
-                                )
-                            },
-                            |issue_id| {
-                                (
-                                    None,
-                                    issues
-                                        .iter()
-                                        .find(|entry| entry.id == issue_id)
-                                        .map(|entry| {
-                                            (issue_id, entry.subject.clone().unwrap_or_default())
-                                        })
-                                        .or(None),
-                                )
-                            },
-                        )
+                        let tuple = determine_issue(issue, &issues);
+                        if tuple.1.is_none() {
+                            anyhow::bail!("Specified issue not known in server");
+                        }
+                        tuple
                     }
                     (None, None) => {
                         // show both projects && issues and allow fuzzy-select
@@ -205,6 +157,68 @@ fn start(
     }
 }
 
+fn determine_issue(issue: &str, issues: &[Issue]) -> (Option<IdWithText>, Option<IdWithText>) {
+    issue.trim().parse::<u64>().map_or_else(
+        |_| {
+            (
+                None,
+                issues
+                    .iter()
+                    .find(|&entry| {
+                        entry
+                            .subject
+                            .as_ref()
+                            .filter(|&subject| {
+                                subject.eq_ignore_ascii_case(issue)
+                            })
+                            .is_some()
+                    })
+                    .map(|entry| {
+                        (entry.id, entry.subject.clone().unwrap_or_default())
+                    })
+                    .or(None),
+            )
+        },
+        |issue_id| {
+            (
+                None,
+                issues
+                    .iter()
+                    .find(|entry| entry.id == issue_id)
+                    .map(|entry| {
+                        (issue_id, entry.subject.clone().unwrap_or_default())
+                    })
+                    .or(None),
+            )
+        },
+    )
+}
+
+fn determine_project(project: &str, projects: &[Project]) -> (Option<IdWithText>, Option<IdWithText>) {
+    project.trim().parse::<u64>().map_or_else(
+        |_| {
+            (
+                projects
+                    .iter()
+                    .find(|&entry| entry.name.eq_ignore_ascii_case(project))
+                    .map(|entry| (entry.id, entry.name.clone()))
+                    .or(None),
+                None,
+            )
+        },
+        |project_id| {
+            (
+                projects
+                    .iter()
+                    .find(|&entry| entry.id == project_id)
+                    .map(|entry| (project_id, entry.name.clone()))
+                    .or(None),
+                None,
+            )
+        },
+    )
+}
+
 fn combine_projects_and_issues(
     projects: &[Project],
     issues: &[Issue],
@@ -250,7 +264,7 @@ fn determine_activity_id(
     activity: Option<&String>,
     time_entry_activities: &[TimeEntryActivity],
 ) -> Option<IdWithText> {
-    let activity_id: Option<IdWithText> = activity.map_or_else(
+    activity.map_or_else(
         || {
             Skim::run_items(
                 create_skim_options("Select the activity you wish to start:"),
@@ -288,8 +302,7 @@ fn determine_activity_id(
                 },
             )
         },
-    );
-    activity_id
+    )
 }
 
 fn stop(
