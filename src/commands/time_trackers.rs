@@ -127,7 +127,7 @@ fn start(
                     }
                 };
 
-            if let Some(parent) = &tracking_file_path.parent() {
+            if let Some(parent) = tracking_file_path.parent() {
                 fs::create_dir_all(parent)?;
             }
 
