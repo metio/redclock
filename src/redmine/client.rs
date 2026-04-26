@@ -7,7 +7,7 @@ use redmine_api::api::enumerations::{
     ListTimeEntryActivities, TimeEntryActivitiesWrapper, TimeEntryActivity,
 };
 use redmine_api::api::issues::{Issue, IssueStatusFilter, ListIssues};
-use redmine_api::api::projects::{ListProjects, Project};
+use redmine_api::api::projects::{ListProjects, Project, ProjectStatusFilter};
 use redmine_api::api::time_entries::{CreateTimeEntry, TimeEntry, TimeEntryWrapper};
 use std::fs;
 use std::path::PathBuf;
@@ -133,7 +133,9 @@ impl RedmineClient for RedmineHttpClient {
             Ok(serde_json::from_str(&cache_content)?)
         } else {
             // fetch from server
-            let endpoint = ListProjects::builder().build()?;
+            let endpoint = ListProjects::builder()
+                .status(vec![ProjectStatusFilter::Active])
+                .build()?;
             let projects = self
                 .redmine
                 .json_response_body_all_pages::<_, Project>(&endpoint)?;
