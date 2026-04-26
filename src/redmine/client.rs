@@ -102,7 +102,7 @@ impl RedmineClient for RedmineHttpClient {
                 .map(|response| response.time_entry_activities)?;
 
             // write to cache
-            if let Some(parent) = &cache_path.parent() {
+            if let Some(parent) = cache_path.parent() {
                 fs::create_dir_all(parent)?;
             }
             let cache_content = serde_json::to_string(&activities)?;
@@ -141,7 +141,7 @@ impl RedmineClient for RedmineHttpClient {
                 .json_response_body_all_pages::<_, Project>(&endpoint)?;
 
             // write to cache
-            if let Some(parent) = &cache_path.parent() {
+            if let Some(parent) = cache_path.parent() {
                 fs::create_dir_all(parent)?;
             }
             let cache_content = serde_json::to_string(&projects)?;
@@ -180,7 +180,7 @@ impl RedmineClient for RedmineHttpClient {
                 .json_response_body_all_pages::<_, Issue>(&endpoint)?;
 
             // write to cache
-            if let Some(parent) = &cache_path.parent() {
+            if let Some(parent) = cache_path.parent() {
                 fs::create_dir_all(parent)?;
             }
             let cache_content = serde_json::to_string(&issues)?;
