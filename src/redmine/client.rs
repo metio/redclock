@@ -82,7 +82,7 @@ impl RedmineClient for RedmineHttpClient {
         let cache_path = self.cache_directory.join("activities.json");
         let cache_timestamp_path = self.cache_directory.join("activities.last_fetched");
 
-        if self.ignore_cache
+        if !self.ignore_cache
             && cache_path.exists()
             && cache_timestamp_path.exists()
             && Self::should_read_from_cache(
@@ -120,7 +120,7 @@ impl RedmineClient for RedmineHttpClient {
         let cache_path = self.cache_directory.join("projects.json");
         let cache_timestamp_path = self.cache_directory.join("projects.last_fetched");
 
-        if self.ignore_cache
+        if !self.ignore_cache
             && cache_path.exists()
             && cache_timestamp_path.exists()
             && Self::should_read_from_cache(
@@ -159,7 +159,7 @@ impl RedmineClient for RedmineHttpClient {
         let cache_path = self.cache_directory.join("issues.json");
         let cache_timestamp_path = self.cache_directory.join("issues.last_fetched");
 
-        if self.ignore_cache
+        if !self.ignore_cache
             && cache_path.exists()
             && cache_timestamp_path.exists()
             && Self::should_read_from_cache(
