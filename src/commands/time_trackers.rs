@@ -61,6 +61,10 @@ fn start(
         let time_entry_activities = redmine.get_all_activities()?;
         let activity_id = determine_activity_id(activity, &time_entry_activities);
 
+        if activity.is_some() && activity_id.is_none() {
+            anyhow::bail!("Specified activity not known in server");
+        }
+
         if let Some(activity_tuple) = activity_id {
             let (project_tuple, issue_tuple): (Option<IdWithText>, Option<IdWithText>) =
                 match (project, issue) {
