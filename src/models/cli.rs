@@ -122,6 +122,17 @@ pub struct TrackStopArgs {
 pub struct TrackShowArgs {
     #[command(flatten)]
     pub server_selection: ServerSelectionArgs,
+
+    /// Customize the output according to specified format. Allowed placeholders are:
+    ///     - {activity}: The currently active activity
+    ///     - {project}: The currently active project (possible empty)
+    ///     - {issue}: The currently active issue (possible empty)
+    ///     - {hours}: The amount of full hours tracked so far
+    ///     - {minutes}: The amount of full minutes tracked so far
+    ///     - {seconds}: The amount of full seconds tracked so far
+    /// The default is: {project}{issue} for {hour}:{minute}
+    #[arg(short, long)]
+    pub format: Option<String>,
 }
 
 #[derive(Subcommand)]
