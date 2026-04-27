@@ -199,17 +199,3 @@ jobs:
           --no-verify
         env:
           RUSTFLAGS: "-A warnings"
-      - id: mail
-        name: Send Mail
-        if: needs.prepare.outputs.release_version != ''
-        uses: dawidd6/action-send-mail@v16
-        with:
-          server_address: ${{ secrets.MAIL_SERVER }}
-          server_port: ${{ secrets.MAIL_PORT }}
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          subject: ${{ github.event.repository.name }} version ${{ needs.prepare.outputs.release_version }} published
-          body: See https://github.com/metio/${{ github.event.repository.name }}/releases/tag/${{ needs.prepare.outputs.release_version }} for details.
-          to: '${{ secrets.MAIL_RECIPIENT }}'
-          from: '${{ secrets.MAIL_SENDER }}'
-          envelope_from: '${{ secrets.MAIL_SENDER }}'
