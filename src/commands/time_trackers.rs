@@ -102,26 +102,7 @@ fn start(
                         .map_or((None, None), |first| {
                             first.downcast_item::<RedmineProjectIssueItem>().map_or(
                                 (None, None),
-                                |selection| {
-                                    if selection.variant == RedmineProjectIssueItemVariant::Project
-                                    {
-                                        (
-                                            Some((
-                                                selection.project_id.unwrap_or_default(),
-                                                selection.project_name.clone().unwrap_or_default(),
-                                            )),
-                                            None,
-                                        )
-                                    } else {
-                                        (
-                                            None,
-                                            Some((
-                                                selection.issue_id.unwrap_or_default(),
-                                                selection.issue_title.clone().unwrap_or_default(),
-                                            )),
-                                        )
-                                    }
-                                },
+                                map_selection,
                             )
                         })
                     }
@@ -160,6 +141,27 @@ fn start(
     } else {
         anyhow::bail!(
             "No server found in configuration. Run 'redclock server add ...' first to add one"
+        )
+    }
+}
+
+fn map_selection(selection: &RedmineProjectIssueItem) -> (Option<IdWithText>, Option<IdWithText>) {
+    if selection.variant == RedmineProjectIssueItemVariant::Project
+    {
+        (
+            Some((
+                selection.project_id.unwrap_or_default(),
+                selection.project_name.clone().unwrap_or_default(),
+            )),
+            None,
+        )
+    } else {
+        (
+            None,
+            Some((
+                selection.issue_id.unwrap_or_default(),
+                selection.issue_title.clone().unwrap_or_default(),
+            )),
         )
     }
 }
