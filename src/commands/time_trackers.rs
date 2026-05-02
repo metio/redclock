@@ -127,24 +127,31 @@ fn start(
                     }
                 };
 
-            if let Some(parent) = tracking_file_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-
-            write_tracking_file(
-                tracking_file_path,
-                &StartTime {
-                    server: registration.name.clone(),
-                    activity_id: activity_tuple.0,
-                    activity: activity_tuple.1,
-                    project_id: project_tuple.clone().map(|project| project.0),
-                    project: project_tuple.map(|project| project.1),
-                    issue_id: issue_tuple.clone().map(|issue| issue.0),
-                    issue: issue_tuple.map(|issue| issue.1),
-                    comment: comment.cloned(),
-                    start: chrono::Utc::now(),
+            match (project_tuple, issue_tuple) {
+                (None, None) => {
+                    anyhow::bail!("No project/issue selected. No time will be tracked");
                 },
-            )?;
+                (project, issue) => {
+                    if let Some(parent) = tracking_file_path.parent() {
+                        fs::create_dir_all(parent)?;
+                    }
+
+                    write_tracking_file(
+                        tracking_file_path,
+                        &StartTime {
+                            server: registration.name.clone(),
+                            activity_id: activity_tuple.0,
+                            activity: activity_tuple.1,
+                            project_id: project.clone().map(|project| project.0),
+                            project: project.map(|project| project.1),
+                            issue_id: issue.clone().map(|issue| issue.0),
+                            issue: issue.map(|issue| issue.1),
+                            comment: comment.cloned(),
+                            start: chrono::Utc::now(),
+                        },
+                    )?;
+                }
+            }
 
             Ok(())
         } else {
