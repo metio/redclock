@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: 0BSD
 
 use crate::cli::{constants, environment_variables};
+use crate::redmine::client::RedmineClient;
 use crate::redmine::client::RedmineHttpClient;
 use anyhow::{Context, Result};
 use redmine_api::api::Redmine;
@@ -17,8 +18,6 @@ pub struct Configuration {
     /// The default server to use when no server name was specified
     pub default_server: Option<String>,
 
-    //     PushIntervalSeconds,
-    //     FetchRetriesMaximum
     /// The cache duration for activities
     pub activities_fetch_interval_seconds: Option<u64>,
 
@@ -30,6 +29,12 @@ pub struct Configuration {
 
     /// The cache duration for issues
     pub fetch_retries_maximum: Option<u32>,
+
+    /// Override for the data directory; if None, falls back to env var / OS dirs.
+    /// Skipped during serialization so it never leaks into the config file.
+    /// Only used during tests!
+    #[serde(skip)]
+    pub data_dir_override: Option<PathBuf>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -69,7 +74,13 @@ impl Configuration {
         )
     }
 
-    pub fn data_path() -> Result<PathBuf> {
+    /// Returns the data directory for this configuration instance.
+    /// Priority: instance override → env var → OS project dirs.
+    pub fn data_path(&self) -> Result<PathBuf> {
+        if let Some(ref override_path) = self.data_dir_override {
+            return absolute(override_path.clone())
+                .context("Could not resolve absolute path to data directory override");
+        }
         var_os(environment_variables::REDCLOCK_DATA).map_or_else(
             || {
                 directories::ProjectDirs::from("wtf.metio", "metio", "redclock")
@@ -83,8 +94,8 @@ impl Configuration {
         )
     }
 
-    pub fn tracking_file_path(server_name: &str) -> Result<PathBuf> {
-        Ok(Self::data_path()?.join(server_name).join("tracking.toml"))
+    pub fn tracking_file_path(&self, server_name: &str) -> Result<PathBuf> {
+        Ok(self.data_path()?.join(server_name).join("tracking.toml"))
     }
 
     pub fn cache_path() -> Result<PathBuf> {
@@ -102,7 +113,7 @@ impl Configuration {
     }
 
     pub fn cache_directory(server_name: &str) -> Result<PathBuf> {
-        Ok(Self::cache_path()?.join(server_name))
+        Self::cache_path().map(|path| path.join(server_name))
     }
 
     pub fn add_server(&mut self, registration: ServerRegistration) -> Result<()> {
@@ -157,8 +168,8 @@ impl Configuration {
     pub fn create_redmine_client(
         &self,
         server_registration: &ServerRegistration,
-        ignore_cache: bool
-    ) -> Result<RedmineHttpClient> {
+        ignore_cache: bool,
+    ) -> Result<Box<dyn RedmineClient>> {
         let client = reqwest::blocking::Client::builder()
             .retry(
                 reqwest::retry::for_host(server_registration.url.clone())
@@ -172,15 +183,15 @@ impl Configuration {
             &server_registration.api_key()?,
         )?;
 
-        Ok(RedmineHttpClient::new(
+        Ok(Box::new(RedmineHttpClient::new(
             redmine,
-            Self::cache_directory(&server_registration.name)?,
+            Self::cache_directory(&server_registration.name).ok(),
             self.activities_fetch_interval_seconds
                 .unwrap_or(60 * 60 * 24 * 7),
             self.projects_fetch_interval_seconds.unwrap_or(60 * 60 * 24),
             self.issues_fetch_interval_seconds.unwrap_or(60 * 60),
             ignore_cache,
-        ))
+        )))
     }
 }
 
