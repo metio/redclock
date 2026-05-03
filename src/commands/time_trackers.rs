@@ -8,7 +8,7 @@ use crate::models::skim::{
     create_skim_options,
 };
 use crate::models::time_entry::StartTime;
-use crate::redmine::client::{RedmineClient, RedmineHttpClient};
+use crate::redmine::client::RedmineClient;
 use redmine_api::api::enumerations::TimeEntryActivity;
 use redmine_api::api::issues::Issue;
 use redmine_api::api::projects::Project;
@@ -26,7 +26,7 @@ pub fn dispatch(command: &TimeTrackCommands, configuration: &Configuration) -> a
             args.project.as_ref(),
             args.issue.as_ref(),
             args.comment.as_ref(),
-            args.ignore_cache
+            args.ignore_cache,
         ),
         TimeTrackCommands::Stop(args) => {
             stop(configuration, args.server_selection.server.as_ref(), None)
@@ -51,11 +51,12 @@ fn start(
     ignore_cache: bool,
 ) -> anyhow::Result<()> {
     if let Some(registration) = configuration.select_server(server_name) {
-        let redmine = configuration.create_redmine_client(registration, ignore_cache)?;
-        let tracking_file_path = Configuration::tracking_file_path(&registration.name)?;
+        let redmine: Box<dyn RedmineClient> =
+            configuration.create_redmine_client(registration, ignore_cache)?;
+        let tracking_file_path = configuration.tracking_file_path(&registration.name)?;
 
         if tracking_file_path.exists() {
-            stop(configuration, server_name, Some(&redmine))?;
+            stop(configuration, server_name, Some(redmine.as_ref()))?;
         }
 
         let time_entry_activities = redmine.get_all_activities()?;
@@ -100,10 +101,9 @@ fn start(
                         .filter(|output| !output.is_abort)
                         .and_then(|output| output.selected_items.first().cloned())
                         .map_or((None, None), |first| {
-                            first.downcast_item::<RedmineProjectIssueItem>().map_or(
-                                (None, None),
-                                map_selection,
-                            )
+                            first
+                                .downcast_item::<RedmineProjectIssueItem>()
+                                .map_or((None, None), map_selection)
                         })
                     }
                 };
@@ -111,7 +111,7 @@ fn start(
             match (project_tuple, issue_tuple) {
                 (None, None) => {
                     anyhow::bail!("No project/issue selected. No time will be tracked");
-                },
+                }
                 (project, issue) => {
                     if let Some(parent) = tracking_file_path.parent() {
                         fs::create_dir_all(parent)?;
@@ -146,8 +146,7 @@ fn start(
 }
 
 fn map_selection(selection: &RedmineProjectIssueItem) -> (Option<IdWithText>, Option<IdWithText>) {
-    if selection.variant == RedmineProjectIssueItemVariant::Project
-    {
+    if selection.variant == RedmineProjectIssueItemVariant::Project {
         (
             Some((
                 selection.project_id.unwrap_or_default(),
@@ -177,14 +176,10 @@ fn determine_issue(issue: &str, issues: &[Issue]) -> (Option<IdWithText>, Option
                         entry
                             .subject
                             .as_ref()
-                            .filter(|&subject| {
-                                subject.eq_ignore_ascii_case(issue)
-                            })
+                            .filter(|&subject| subject.eq_ignore_ascii_case(issue))
                             .is_some()
                     })
-                    .map(|entry| {
-                        (entry.id, entry.subject.clone().unwrap_or_default())
-                    })
+                    .map(|entry| (entry.id, entry.subject.clone().unwrap_or_default()))
                     .or(None),
             )
         },
@@ -194,16 +189,17 @@ fn determine_issue(issue: &str, issues: &[Issue]) -> (Option<IdWithText>, Option
                 issues
                     .iter()
                     .find(|entry| entry.id == issue_id)
-                    .map(|entry| {
-                        (issue_id, entry.subject.clone().unwrap_or_default())
-                    })
+                    .map(|entry| (issue_id, entry.subject.clone().unwrap_or_default()))
                     .or(None),
             )
         },
     )
 }
 
-fn determine_project(project: &str, projects: &[Project]) -> (Option<IdWithText>, Option<IdWithText>) {
+fn determine_project(
+    project: &str,
+    projects: &[Project],
+) -> (Option<IdWithText>, Option<IdWithText>) {
     project.trim().parse::<u64>().map_or_else(
         |_| {
             (
@@ -317,17 +313,21 @@ fn determine_activity_id(
 fn stop(
     configuration: &Configuration,
     server_name: Option<&String>,
-    redmine_client: Option<&RedmineHttpClient>,
+    redmine_client: Option<&dyn RedmineClient>,
 ) -> anyhow::Result<()> {
     if let Some(registration) = configuration.select_server(server_name) {
-        let tracking_file_path = Configuration::tracking_file_path(&registration.name)?;
+        let tracking_file_path = configuration.tracking_file_path(&registration.name)?;
 
         if tracking_file_path.exists() {
-            let redmine = if let Some(client) = redmine_client {
+            // Either use the passed-in client or create a fresh one (boxed as trait object).
+            let owned: Box<dyn RedmineClient>;
+            let redmine: &dyn RedmineClient = if let Some(client) = redmine_client {
                 client
             } else {
-                &configuration.create_redmine_client(registration, false)?
+                owned = configuration.create_redmine_client(registration, false)?;
+                owned.as_ref()
             };
+
             let tracking_file_content = fs::read_to_string(&tracking_file_path)?;
             let start_time: StartTime = toml::from_str(&tracking_file_content)?;
             let now = chrono::Utc::now();
@@ -340,7 +340,7 @@ fn stop(
                     redmine.track_project_time(
                         start_time.activity_id,
                         project_id,
-                        start_time.comment.as_ref(),
+                        start_time.comment.as_deref().unwrap_or_default(),
                         elapsed_hours,
                     )?;
                 }
@@ -348,7 +348,7 @@ fn stop(
                     redmine.track_issue_time(
                         start_time.activity_id,
                         issue_id,
-                        start_time.comment.as_ref(),
+                        start_time.comment.as_deref().unwrap_or_default(),
                         elapsed_hours,
                     )?;
                 }
@@ -367,9 +367,13 @@ fn stop(
 }
 
 #[allow(clippy::literal_string_with_formatting_args)]
-fn show(configuration: &Configuration, server_name: Option<&String>, format: Option<&String>) -> anyhow::Result<()> {
+fn show(
+    configuration: &Configuration,
+    server_name: Option<&String>,
+    format: Option<&String>,
+) -> anyhow::Result<()> {
     if let Some(registration) = configuration.select_server(server_name) {
-        let tracking_file_path = Configuration::tracking_file_path(&registration.name)?;
+        let tracking_file_path = configuration.tracking_file_path(&registration.name)?;
 
         if tracking_file_path.exists() {
             let tracking_file_content = fs::read_to_string(&tracking_file_path)?;
@@ -380,7 +384,9 @@ fn show(configuration: &Configuration, server_name: Option<&String>, format: Opt
             let seconds = duration.as_secs() % 60;
             let minutes = (duration.as_secs() / 60) % 60;
             let hours = (duration.as_secs() / 60) / 60;
-            let format_to_use = format.cloned().unwrap_or_else(|| String::from("{project}{issue} for {hours}:{minutes}"));
+            let format_to_use = format
+                .cloned()
+                .unwrap_or_else(|| String::from("{project}{issue} for {hours}:{minutes}"));
             let output = format_to_use
                 .replace("{activity}", &start_time.activity)
                 .replace("{project}", &start_time.project.unwrap_or_default())
@@ -395,5 +401,244 @@ fn show(configuration: &Configuration, server_name: Option<&String>, format: Opt
         anyhow::bail!(
             "No server found in configuration. Run 'redclock server add ...' first to add one"
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::models::configuration::ServerRegistration;
+    use crate::redmine::client::MockRedmineClient;
+    use mockall::predicate::*;
+    use redmine_api::api::issues::Issue;
+    use redmine_api::api::projects::Project;
+
+    fn make_test_configuration(dir: &tempfile::TempDir) -> Configuration {
+        Configuration {
+            servers: vec![ServerRegistration {
+                name: "test-server".to_string(),
+                url: "https://redmine.example.com".to_string(),
+                api_key: Some("test-api-key".to_string()),
+                api_key_command: None,
+            }],
+            default_server: Some("test-server".to_string()),
+            data_dir_override: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        }
+    }
+
+    fn make_activity(id: u64, name: &str) -> TimeEntryActivity {
+        TimeEntryActivity {
+            id,
+            name: name.to_string(),
+            is_default: false,
+            active: false,
+        }
+    }
+
+    fn make_project(id: u64, name: &str) -> Project {
+        let json = serde_json::json!({
+            "id": id,
+            "name": name,
+            "identifier": name.to_lowercase(),
+            "description": null,
+            "is_public": null,
+            "inherit_members": null,
+            "status": 1,
+            "created_on": "2024-01-01T00:00:00Z",
+            "updated_on": "2024-01-01T00:00:00Z"
+        });
+        serde_json::from_value(json).expect("failed to deserialize test Project")
+    }
+
+    fn make_issue(id: u64, subject: &str) -> Issue {
+        let json = serde_json::json!({
+            "id": id,
+            "subject": subject,
+            "project": { "id": 1, "name": "Test Project" },
+            "tracker": { "id": 1, "name": "Bug" },
+            "status": { "id": 1, "name": "New", "is_closed": false },
+            "priority": { "id": 1, "name": "Normal" },
+            "author": { "id": 1, "name": "Test User" },
+            "description": null,
+            "done_ratio": 0,
+            "created_on": "2024-01-01T00:00:00Z",
+            "updated_on": "2024-01-01T00:00:00Z",
+            "closed_on": "2024-01-01T00:00:00Z"
+        });
+        serde_json::from_value(json).expect("failed to deserialize test Issue")
+    }
+
+    #[test]
+    fn activity_found_by_name_case_insensitive() {
+        let activities = vec![make_activity(3, "Development")];
+        let name = String::from("development");
+        let result = determine_activity_id(Some(&name), &activities);
+        assert_eq!(result, Some((3, "Development".to_string())));
+    }
+
+    #[test]
+    fn activity_found_by_numeric_id() {
+        let activities = vec![make_activity(7, "Testing")];
+        let id = String::from("7");
+        let result = determine_activity_id(Some(&id), &activities);
+        assert_eq!(result, Some((7, "Testing".to_string())));
+    }
+
+    #[test]
+    fn activity_not_found_returns_none() {
+        let activities = vec![make_activity(1, "Design")];
+        let name = String::from("nonexistent");
+        let result = determine_activity_id(Some(&name), &activities);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn project_found_by_name() {
+        let projects = vec![make_project(10, "Alpha")];
+        let (proj, issue) = determine_project("alpha", &projects);
+        assert_eq!(proj, Some((10, "Alpha".to_string())));
+        assert!(issue.is_none());
+    }
+
+    #[test]
+    fn project_found_by_id() {
+        let projects = vec![make_project(10, "Alpha")];
+        let (proj, issue) = determine_project("10", &projects);
+        assert_eq!(proj, Some((10, "Alpha".to_string())));
+        assert!(issue.is_none());
+    }
+
+    #[test]
+    fn project_not_found_returns_none() {
+        let projects = vec![make_project(10, "Alpha")];
+        let (proj, issue) = determine_project("Beta", &projects);
+        assert!(proj.is_none());
+        assert!(issue.is_none());
+    }
+
+    #[test]
+    fn issue_found_by_subject() {
+        let issues = vec![make_issue(42, "Fix login bug")];
+        let (proj, iss) = determine_issue("fix login bug", &issues);
+        assert!(proj.is_none());
+        assert_eq!(iss, Some((42, "Fix login bug".to_string())));
+    }
+
+    #[test]
+    fn issue_found_by_id() {
+        let issues = vec![make_issue(42, "Fix login bug")];
+        let (proj, iss) = determine_issue("42", &issues);
+        assert!(proj.is_none());
+        assert_eq!(iss, Some((42, "Fix login bug".to_string())));
+    }
+
+    #[test]
+    fn issue_not_found_returns_none() {
+        let issues = vec![make_issue(1, "Some issue")];
+        let (proj, iss) = determine_issue("999", &issues);
+        assert!(proj.is_none());
+        assert!(iss.is_none());
+    }
+
+    #[test]
+    fn stop_calls_track_project_time_when_tracking_file_has_project() {
+        // Write a fake tracking file so stop() has something to read.
+        let dir = tempfile::tempdir().unwrap();
+        let configuration = make_test_configuration(&dir);
+        let registration = configuration.servers.first().unwrap();
+        let start_time = &StartTime {
+            server: registration.url.clone(),
+            activity_id: 7u64,
+            activity: String::from("Development"),
+            project_id: Some(5u64),
+            project: Some(String::from("Test")),
+            issue_id: None,
+            issue: None,
+            comment: None,
+            start: chrono::Utc::now(),
+        };
+        let tracking_file_path = configuration
+            .tracking_file_path(&registration.name.clone())
+            .unwrap();
+        if let Some(parent) = tracking_file_path.parent() {
+            fs::create_dir_all(parent).expect("failed to create tracking file")
+        }
+        write_tracking_file(tracking_file_path, start_time).unwrap();
+
+        let mut mock = MockRedmineClient::new();
+        mock.expect_track_project_time()
+            .times(1)
+            .returning(|_, _, _, _| Ok(()));
+
+        let result = stop(&configuration, None, Some(&mock));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn stop_calls_track_issue_time_when_tracking_file_has_issue() {
+        let dir = tempfile::tempdir().unwrap();
+        let configuration = make_test_configuration(&dir);
+        let registration = configuration.servers.first().unwrap();
+        let start_time = &StartTime {
+            server: registration.url.clone(),
+            activity_id: 7u64,
+            activity: String::from("Development"),
+            project_id: None,
+            project: None,
+            issue_id: Some(3u64),
+            issue: Some(String::from("Some Test Issue")),
+            comment: None,
+            start: chrono::Utc::now(),
+        };
+        let tracking_file_path = configuration
+            .tracking_file_path(&registration.name.clone())
+            .unwrap();
+        if let Some(parent) = tracking_file_path.parent() {
+            fs::create_dir_all(parent).expect("failed to create tracking file");
+        }
+        write_tracking_file(tracking_file_path, start_time).unwrap();
+
+        let mut mock = MockRedmineClient::new();
+        mock.expect_track_issue_time()
+            .times(1)
+            .returning(|_, _, _, _| Ok(()));
+
+        let result = stop(&configuration, None, Some(&mock));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn stop_propagates_tracking_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let configuration = make_test_configuration(&dir);
+        let registration = configuration.servers.first().unwrap();
+        let start_time = &StartTime {
+            server: registration.url.clone(),
+            activity_id: 7u64,
+            activity: String::from("Development"),
+            project_id: Some(3u64),
+            project: Some(String::from("Test")),
+            issue_id: None,
+            issue: None,
+            comment: None,
+            start: chrono::Utc::now(),
+        };
+        let tracking_file_path = configuration
+            .tracking_file_path(&registration.name.clone())
+            .unwrap();
+        if let Some(parent) = tracking_file_path.parent() {
+            fs::create_dir_all(parent).expect("failed to create tracking file");
+        }
+        write_tracking_file(tracking_file_path, start_time).unwrap();
+
+        let mut mock = MockRedmineClient::new();
+        mock.expect_track_project_time()
+            .times(1)
+            .returning(|_, _, _, _| Err(anyhow::anyhow!("server rejected")));
+
+        let result = stop(&configuration, None, Some(&mock));
+        assert!(result.is_err());
     }
 }
