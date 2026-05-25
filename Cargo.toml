@@ -39,7 +39,7 @@ reqwest = { version = "0.13.3", default-features = false, features = ["blocking"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.150" }
 shlex = { version = "2.0.1" }
-skim = { version = "4.6.3", default-features = false, features = [] }
+skim = { version = "4.7.0", default-features = false, features = [] }
 toml = { version = "1.1.0" }
 
 [dev-dependencies]
