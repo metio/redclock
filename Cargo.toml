@@ -33,7 +33,7 @@ directories = { version = "6.0.0" }
 duct = { version = "1.1.1" }
 env_logger = { version = "0.11.10" }
 human-panic = { version = "2.0.8" }
-log = { version = "0.4.30" }
+log = { version = "0.4.31" }
 redmine-api = { version = "0.11.4" }
 reqwest = { version = "0.13.4", default-features = false, features = ["blocking", "json", "rustls"] }
 serde = { version = "1.0.228", features = ["derive"] }
