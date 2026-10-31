@@ -5,6 +5,9 @@ name: Verify Commits
 on:
   pull_request:
     branches: [ main ]
+permissions:
+  contents: read
+
 jobs:
   check:
     name: Check ${{ matrix.target }}
@@ -17,6 +20,7 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -52,6 +56,7 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
