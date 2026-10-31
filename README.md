@@ -1,7 +1,7 @@
 <!--
 SPDX-FileCopyrightText: The redclock Authors
 SPDX-License-Identifier: 0BSD
- -->
+-->
 
 # redclock
 
@@ -53,3 +53,7 @@ $ redclock track stop
 ```
 
 This will save the amount of hours you have worked on a project/issue in your Redmine instance.
+
+## License
+
+[0BSD](LICENSES/0BSD.txt).
