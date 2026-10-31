@@ -1,9 +1,18 @@
 # SPDX-FileCopyrightText: The redclock Authors
 # SPDX-License-Identifier: 0BSD
 
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.project
+.classpath
+.DS_Store
+.claude/settings.local.json
+.breto.local.edn
 target/
 TODO.md
 .bash_history
-.idea/
 dist/
 .local/
