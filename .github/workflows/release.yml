@@ -54,15 +54,6 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             binary_name: redclock
-          - target: x86_64-pc-windows-gnu
-            os: windows-latest
-            binary_name: redclock.exe
-          - target: aarch64-pc-windows-msvc
-            os: windows-latest
-            binary_name: redclock.exe
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            binary_name: redclock.exe
     steps:
       - id: checkout
         name: Clone Git Repository
